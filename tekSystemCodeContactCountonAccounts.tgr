@@ -1,0 +1,35 @@
+trigger tekSystemCodeContactCountonAccounts on Contact (after insert,after delete) {
+
+    Set<Id> actToUpdateId = new Set<Id>(); // var to store accountID
+   
+    // check contact delete or insert contact
+    for (Contact cntRec : Trigger.isDelete ? Trigger.old : Trigger.new) {
+     //yes, you can have a contact without an account
+        if (cntRec.AccountId != null) {
+            actToUpdateId.add(cntRec.AccountId);
+        }
+    }
+   
+    List<Account> actToUpdate = new List<Account>();
+    //two ways to do it
+    /*
+    //using Aggregate
+    for (AggregateResult cC : [SELECT AccountId AcctId, Count(id) cCount FROM Contact WHERE AccountId in: actToUpdateId 
+                               GROUP BY AccountId]){
+        Account a = new Account();
+        a.Id = (Id) cC.get('AcctId'); 
+        a.Number_of_Contacts__c = (Integer) cC.get('cCount');
+        actToUpdate.add(a);
+    }
+  */
+    
+    List<Account> accountList = new List<Account>([Select id ,Name, Number_of_Contacts__c, (Select id, Name From Contacts) from Account Where id in:actToUpdate]);
+    FOR(Account acc : accountList){
+        List<Contact> contactList = acc.Contacts;
+        acc.Number_of_Contacts__c = contactList.size();
+        actToUpdate.add(acc);
+    }
+    
+    update actToUpdate;
+
+}
